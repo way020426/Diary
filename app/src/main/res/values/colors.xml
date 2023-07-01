@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#6200EE</color>
+    <color name="colorPrimaryDark">#3700B3</color>
+    <color name="colorAccent">#03DAC5</color>
+    <color name="list_background">#AE9A9A</color> <!-- 白色背景 -->
+    <color name="text_primary">#000000</color> <!-- 黑色主要文字 -->
+    <color name="text_secondary">#787878</color> <!-- 灰色次要文字 -->
+    <color name="divider">#E0E0E0</color> <!-- 灰色分隔线 -->
+    <color name="primary">#3F51B5</color> <!-- 蓝色主题颜色 -->
+    <color name="white">#FFFFFF</color> <!-- 白色 -->
+    <color name="colorItemSelected">#FF4081</color>
+</resources>
