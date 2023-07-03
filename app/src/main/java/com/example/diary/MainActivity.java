@@ -21,6 +21,7 @@ import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.Button;
 import android.widget.CheckBox;
+import android.widget.CompoundButton;
 import android.widget.ListView;
 import android.widget.SimpleAdapter;
 
@@ -203,9 +204,23 @@ public class MainActivity extends AppCompatActivity {
             public View getView(int position, View convertView, ViewGroup parent) {
                 View view = super.getView(position, convertView, parent);
                 CheckBox checkbox = view.findViewById(R.id.checkbox);
+
+                checkbox.setOnCheckedChangeListener(null); // 必须先清除监听器，防止因为列表项复用导致的混乱
+                checkbox.setChecked("true".equals(dataList.get(position).get("checked"))); // 设置CheckBox的状态
+
+                checkbox.setOnCheckedChangeListener(new CompoundButton.OnCheckedChangeListener() {
+                    @Override
+                    public void onCheckedChanged(CompoundButton buttonView, boolean isChecked) {
+                        if (isMultiSelectMode) {
+                            dataList.get(position).put("checked", isChecked ? "true" : "false"); // 修改对应的数据
+                        }
+                    }
+                });
+
                 checkbox.setVisibility(isMultiSelectMode ? View.VISIBLE : View.GONE); // 根据模式显示或隐藏复选框
                 return view;
             }
+
         };
         listView=findViewById(R.id.list_item);
         listView.setAdapter(adapter);

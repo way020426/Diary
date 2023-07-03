@@ -104,8 +104,6 @@ public class New extends AppCompatActivity {
                     picture.setImageBitmap(bitmap);
                 }
                 break;
-
-            default:
         }
     }
 
@@ -188,12 +186,6 @@ public class New extends AppCompatActivity {
                     finish();
                 }
             }
-
-            if (tag == TAG_UPDATE) {
-                db.delete(TABLE_NAME, "id=?", new String[]{String.valueOf(id)});
-            }
-            Toast.makeText(this, "Delete", Toast.LENGTH_SHORT).show();
-            finish();
         } else if (itemId == R.id.delete) {
             if (tag == TAG_UPDATE) {
                 db.delete(TABLE_NAME, "id=?", new String[]{String.valueOf(id)});
