@@ -15,75 +15,97 @@ import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
 
+// 加密
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.security.SecureRandom;
+import java.util.List;
+import java.util.Map;
+
+import android.content.ContentValues;
+import android.database.sqlite.SQLiteDatabase;
+
 public class Login extends AppCompatActivity{
 
-    private SharedPreferences pref;//定义一个SharedPreferences对象
-    private SharedPreferences.Editor editor;//调用SharedPreferences对象的edit()方法来获取一个SharedPreferences.Editor对象，用以添加要保存的数据
-    private Button login;//登录按钮
-    private EditText adminEdit;//用户名输入框
-    private EditText passwordEdit;//密码输入框
-    private CheckBox savePassword;//是否保存密码复选框
-    private CheckBox showPassword;//显示或隐藏密码复选框
+    private SharedPreferences pref;
+    private SharedPreferences.Editor editor;
+    private Button login;
+    private EditText adminEdit;
+    private EditText passwordEdit;
+    private CheckBox savePassword;
+    private CheckBox showPassword;
+
+    // add this
+    private UserDBHelper dbHelper;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_login);
-        //获取各组件或对象的实例
         pref= PreferenceManager.getDefaultSharedPreferences(this);
         login=findViewById(R.id.login_button);
         adminEdit=findViewById(R.id.admin);
         passwordEdit=findViewById(R.id.password);
         savePassword=findViewById(R.id.save_password);
         showPassword=findViewById(R.id.show_password);
-        //获取当前“是否保存密码”的状态
-        final boolean isSave=pref.getBoolean("save_password",false);
-        //当“是否保存密码”勾选时，从SharedPreferences对象中读出保存的内容，并显示出来
+
+        // initialize dbHelper
+        dbHelper = new UserDBHelper(this, "User.db", null, 1);
+
+        boolean isSave=pref.getBoolean("save_password",false);
         if(isSave){
             String account=pref.getString("account","");
             String password=pref.getString("password","");
             adminEdit.setText(account);
             passwordEdit.setText(password);
-            //把光标移到文本末尾处
             adminEdit.setSelection(adminEdit.getText().length());
             passwordEdit.setSelection(passwordEdit.getText().length());
             savePassword.setChecked(true);
         }
-        //用户点击登录时的处理事件
+
         login.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                //读出用户名和密码并判断是否正确
                 String account=adminEdit.getText().toString();
                 String password=passwordEdit.getText().toString();
-                //用户名和密码正确
-                if(account.equals("admin")&&password.equals("123456")){
-                    editor=pref.edit();
-                    //“是否保存密码”勾选
-                    if(savePassword.isChecked()){
-                        editor.putBoolean("save_password",true);
-                        editor.putString("account",account);
-                        editor.putString("password",password);
+                String salt = generateSalt();
+                String securePassword = get_SHA_256_SecurePassword(password, salt);
+
+                // check if user already exists in database
+                List<Map<String, String>> users = dbHelper.getAll();
+                for(Map<String, String> user : users){
+                    if(user.get("username").equals(account)){
+                        // user exists, check password
+                        if(user.get("hashedPassword").equals(securePassword)){
+                            // password correct
+                            Toast.makeText(Login.this,"登录成功",Toast.LENGTH_SHORT).show();
+                            Intent intent=new Intent(Login.this, MainActivity.class);
+                            startActivity(intent);
+                            finish();
+                            return;
+                        }else{
+                            // password incorrect
+                            Toast.makeText(Login.this,"登录失败,请重新输入！",Toast.LENGTH_SHORT).show();
+                            return;
+                        }
                     }
-                    else{
-                        editor.clear();
-                    }
-                    //提交完成数据存储
-                    editor.apply();
-                    //显示登录成功并跳转到主界面活动
-                    Toast.makeText(Login.this,"登录成功",Toast.LENGTH_SHORT).show();
-                    Intent intent=new Intent(Login.this, MainActivity.class);
-                    startActivity(intent);
-                    //结束当前活动
-                    finish();
                 }
-                //用户名或密码错误
-                else{
-                    Toast.makeText(Login.this,"登录失败,请重新输入！",Toast.LENGTH_SHORT).show();
-                }
+
+                // user does not exist, add to database
+                SQLiteDatabase db = dbHelper.getWritableDatabase();
+                ContentValues values = new ContentValues();
+                values.put("username", account);
+                values.put("salt", salt);
+                values.put("hashedPassword", securePassword);
+                db.insert("Users", null, values);
+                Toast.makeText(Login.this,"账户创建成功,已自动登录",Toast.LENGTH_SHORT).show();
+                Intent intent=new Intent(Login.this, MainActivity.class);
+                startActivity(intent);
+                finish();
             }
         });
 
-        //用户点击'显示密码'复选框
         showPassword.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -94,10 +116,8 @@ public class Login extends AppCompatActivity{
                 }
             }
         });
-
     }
 
-    //当用户离开活动时，检测是否勾选记住密码，若勾选则保存用户输入的用户名及密码
     @Override
     protected void onDestroy() {
         super.onDestroy();
@@ -113,10 +133,8 @@ public class Login extends AppCompatActivity{
         }
         editor.apply();
     }
-    //显示或隐藏密码
-    private void showOrHide(EditText passwordEdit,boolean isShow){
 
-        //记住光标开始的位置
+    private void showOrHide(EditText passwordEdit,boolean isShow){
         int pos = passwordEdit.getSelectionStart();
         if(isShow){
             passwordEdit.setTransformationMethod(HideReturnsTransformationMethod.getInstance());
@@ -124,6 +142,30 @@ public class Login extends AppCompatActivity{
             passwordEdit.setTransformationMethod(PasswordTransformationMethod.getInstance());
         }
         passwordEdit.setSelection(pos);
+    }
+
+    public static String generateSalt() {
+        SecureRandom random = new SecureRandom();
+        byte bytes[] = new byte[20];
+        random.nextBytes(bytes);
+        return bytes.toString();
+    }
+
+    public static String get_SHA_256_SecurePassword(String passwordToHash, String salt){
+        String generatedPassword = null;
+        try {
+            MessageDigest md = MessageDigest.getInstance("SHA-256");
+            md.update(salt.getBytes(StandardCharsets.UTF_8));
+            byte[] bytes = md.digest(passwordToHash.getBytes(StandardCharsets.UTF_8));
+            StringBuilder sb = new StringBuilder();
+            for(int i=0; i< bytes.length ;i++){
+                sb.append(Integer.toString((bytes[i] & 0xff) + 0x100, 16).substring(1));
+            }
+            generatedPassword = sb.toString();
+        } catch (NoSuchAlgorithmException e) {
+            e.printStackTrace();
+        }
+        return generatedPassword;
     }
 
 }
