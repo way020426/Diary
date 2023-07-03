@@ -69,14 +69,14 @@ public class Login extends AppCompatActivity{
             public void onClick(View v) {
                 String account=adminEdit.getText().toString();
                 String password=passwordEdit.getText().toString();
-                String salt = generateSalt();
-                String securePassword = get_SHA_256_SecurePassword(password, salt);
 
                 // check if user already exists in database
                 List<Map<String, String>> users = dbHelper.getAll();
                 for(Map<String, String> user : users){
                     if(user.get("username").equals(account)){
                         // user exists, check password
+                        String salt = user.get("salt"); // get salt from database
+                        String securePassword = get_SHA_256_SecurePassword(password, salt); // use salt from database
                         if(user.get("hashedPassword").equals(securePassword)){
                             // password correct
                             Toast.makeText(Login.this,"登录成功",Toast.LENGTH_SHORT).show();
@@ -92,7 +92,9 @@ public class Login extends AppCompatActivity{
                     }
                 }
 
-                // user does not exist, add to database
+                // user does not exist, register new user
+                String salt = generateSalt();
+                String securePassword = get_SHA_256_SecurePassword(password, salt);
                 SQLiteDatabase db = dbHelper.getWritableDatabase();
                 ContentValues values = new ContentValues();
                 values.put("username", account);
@@ -105,6 +107,7 @@ public class Login extends AppCompatActivity{
                 finish();
             }
         });
+
 
         showPassword.setOnClickListener(new View.OnClickListener() {
             @Override
